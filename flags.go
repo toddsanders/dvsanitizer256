@@ -11,6 +11,8 @@ import (
 
 type Args struct {
 	seed                  string
+	keyFile               string
+	electionID            string
 	genSeed               bool
 	inputPath             string
 	outputDir             string
@@ -22,6 +24,8 @@ type Args struct {
 var args Args
 
 func ParseCmd() {
+	flag.StringVar(&args.keyFile, "key-file", "", "Private file containing a 64-digit hexadecimal key; created exclusively with --gen-seed.")
+	flag.StringVar(&args.electionID, "election-id", "", "Stable election and jurisdiction context; identical for matching CVRs and images.")
 	flag.StringVar(&args.inputPath, "input", "",
 		"The file/directory to read dirty data from (type depends on instruction of what to sanitize).",
 	)
@@ -29,10 +33,10 @@ func ParseCmd() {
 		"The file/directory to write cleaned data to (type depends on instruction of what to sanitize).",
 	)
 	flag.StringVar(&args.seed, "seed", "",
-		"A well-generate seed to use for sanitizing record IDs.",
+		"Deprecated: a 64-digit hexadecimal random key. Prefer --key-file to avoid command-line exposure.",
 	)
 	flag.BoolVar(&args.genSeed, "gen-seed", false,
-		"Automatically generate a cryptographically random seed, perform the given action, and write the seed to the screen upon completion of the action.",
+		"Generate a cryptographically random 256-bit key in --key-file, without printing it.",
 	)
 	flag.BoolVar(&args.actionSanitizeCSV, "sanitize-csv", false,
 		"Sanitize the input .CSV-format CVR file (--input) and write it to the output directory (--output-dir). "+
@@ -66,18 +70,14 @@ func ParseCmd() {
 		log.Fatalf("You can only supply a single instruction (i.e., --sanitize-tif-dir OR --sanitize-csv but not both).")
 	}
 
-	// Validate the seed flags
-	switch {
-	case !args.genSeed && args.seed == "":
-		log.Fatalf("You must either supply an explicit seed (--seed) or instruct the sanitizer to generate a seed automatically (--gen-seed).")
-	case args.genSeed && args.seed != "":
-		log.Fatalf("You can not both supply an explicit seed (--seed) and instruct the sanitizer to generate a seed automatically (--gen-seed).")
-	case args.seed != "":
-		if len(args.seed) < 16 || args.seed == "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" {
-			log.Fatalf("An insecure seed was supplied. Try again.")
-		}
-	default: // --gen-seed was supplied
-		// do nothing b/c handled in main()
+	if args.electionID == "" {
+		log.Fatal("You must supply --election-id, including election and jurisdiction.")
+	}
+	if args.genSeed && (args.keyFile == "" || args.seed != "") {
+		log.Fatal("--gen-seed requires --key-file and cannot be combined with --seed.")
+	}
+	if !args.genSeed && ((args.keyFile == "") == (args.seed == "")) {
+		log.Fatal("Supply exactly one of --key-file or --seed.")
 	}
 
 	// Generic validation for all other flags (specific validation handled in own function).

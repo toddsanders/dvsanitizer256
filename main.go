@@ -1,9 +1,6 @@
 package main
 
 import (
-	"crypto/rand"
-	"encoding/hex"
-	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -15,29 +12,8 @@ import (
 const (
 	UNFINISHED_DIR_PREFIX = "SANITIZATION-UNFINISHED_"
 
-	GEN_SEED_SIZE = 16 // in bytes
+	GEN_SEED_SIZE = 32 // in bytes
 
-	MSG_BREAK = `********************************************************************************
-********************************************************************************`
-
-	GEN_SEED_MSG = "" +
-		`Sanitization succeeded with the above auto-generated seed.
-
-If you wish to sanitize multiple files and keep sanitized record IDs
-consistent, you MUST provide the below auto-generated seed to the next instance
-by using the '--seed' flag. Reasons you might want to do this are:
-    You want to sanitize both the CSV and JSON-zip format CVR files and be able
-    to reference a single ballot with a single sanitized record ID.
-        First call : --sanitize-csv         --gen-seed
-        Second call: --sanitize-json-zip    --seed=XXXXXXXXXXXXXXXX
-
-    You want to sanitze a CSV CVR file and its associated ballot images.
-        First instance : --sanitize-csv     --gen-seed
-        Second instance: --sanitize-tif-dir --seed=XXXXXXXXXXXXXXXX
-
-    You want to sanitize a partial CVR file then a full CVR file.
-        First instance : --sanitize-csv     --gen-seed
-        Second instance: --sanitize-csv     --seed=XXXXXXXXXXXXXXXX`
 )
 
 func createUnfinishedDir() string {
@@ -56,14 +32,11 @@ func createUnfinishedDir() string {
 func main() {
 	ParseCmd()
 
-	if args.genSeed {
-		rawBuffer := make([]byte, GEN_SEED_SIZE, GEN_SEED_SIZE)
-		if n, err := rand.Read(rawBuffer); n != GEN_SEED_SIZE || err != nil {
-			log.Fatalf("An error was encountered generating a secure random seed.")
-		}
-		args.seed = hex.EncodeToString(rawBuffer)
+	key, err := loadKey(args)
+	if err != nil {
+		log.Fatal(err)
 	}
-	sanitize.Initialize([]byte(args.seed))
+	sanitize.InitializeForElection(key, args.electionID)
 
 	var unfinishedDirPath string
 	switch {
@@ -99,11 +72,4 @@ func main() {
 		log.Fatalf("Unable to delete now-empty unfinished-path: %v", err)
 	}
 
-	if args.genSeed {
-		fmt.Println(MSG_BREAK)
-		fmt.Println("Your auto-generated seed is: " + args.seed)
-		fmt.Println(MSG_BREAK)
-		fmt.Println(GEN_SEED_MSG)
-		fmt.Println(MSG_BREAK)
-	}
 }

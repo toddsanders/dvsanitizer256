@@ -1,53 +1,47 @@
 package sanitize
 
 import (
-	"crypto/aes"
-	"crypto/cipher"
+	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
-
-	"github.com/AuburnCyber/dvsanitizer/internal/safety"
 )
 
-const (
-	ONE_MILLION = 1000000
-)
+const ONE_MILLION = 1000000
 
-var aesCipher cipher.Block
+var recordKey []byte
+var recordContext string
 
-func Initialize(seed []byte) {
-	// Actual checks occur in flags.go's ParseCmd() of the main app.
-	if len(seed) < 16 {
-		// This is a last-ditch to avoid stupidity.
-		panic("CODE PATH ALLOWED CALL TO sanitize.Initialize() WITH INSECURE SEED")
+// Initialize is retained for package callers. Production releases should use
+// InitializeForElection with an explicit, stable election/jurisdiction scope.
+func Initialize(key []byte) { InitializeForElection(key, "") }
+
+// InitializeForElection copies a raw 256-bit key. Context must be identical for
+// all related CVR and image runs, and different elections must use fresh keys.
+func InitializeForElection(key []byte, context string) {
+	if len(key) != 32 {
+		panic("sanitizer requires a raw 256-bit key")
 	}
-	keyArr := sha256.Sum256(seed)
-
-	var err error
-	aesCipher, err = aes.NewCipher(keyArr[:])
-	if err != nil {
-		// Don't report anything else b/c don't want to leak a seed that may be reused.
-		safety.ReportError("Unable to create AES cipher object.", err)
-	}
+	recordKey = append([]byte(nil), key...)
+	recordContext = context
 }
 
-func createCleanRecordID(tabID uint32, batchID uint32, dirtyRecordID uint32) string {
-	pt := make([]byte, aes.BlockSize, aes.BlockSize)
-	binary.BigEndian.PutUint32(pt, uint32(tabID))
-	binary.BigEndian.PutUint32(pt[4:], uint32(batchID))
-	binary.BigEndian.PutUint32(pt[8:], uint32(dirtyRecordID))
-	binary.BigEndian.PutUint32(pt[12:], uint32(0)) // Ensures the last 4-bytes are null
-
-	ct := make([]byte, aes.BlockSize, aes.BlockSize)
-
-	// Use ECB mode which is safe in this case b/c we explicitly want identical
-	// plaintexts (the record IDs) to have identical ciphertext (the encrypted
-	// record IDs).
-	aesCipher.Encrypt(ct, pt)
-
-	// The sanitized record ID is the hex-encoded first 8 bytes of the
-	// ciphertext prefixed with '0x' to unequivocally indicate that it is a hex
-	// value and not an integer value.
-	return "0x" + hex.EncodeToString(ct[:8])
+func createCleanRecordID(tabID, batchID, dirtyRecordID uint32) string {
+	if len(recordKey) != 32 {
+		panic("sanitizer not initialized")
+	}
+	mac := hmac.New(sha256.New, recordKey)
+	// Versioned domain, byte length + UTF-8 context, then three fixed-width
+	// unsigned big-endian IDs: unambiguous across formats and leading zeros.
+	mac.Write([]byte("DVSanitizer-HMAC-SHA256-v1\x00"))
+	var length [8]byte
+	binary.BigEndian.PutUint64(length[:], uint64(len(recordContext)))
+	mac.Write(length[:])
+	mac.Write([]byte(recordContext))
+	var ids [12]byte
+	binary.BigEndian.PutUint32(ids[0:4], tabID)
+	binary.BigEndian.PutUint32(ids[4:8], batchID)
+	binary.BigEndian.PutUint32(ids[8:12], dirtyRecordID)
+	mac.Write(ids[:])
+	return "0x" + hex.EncodeToString(mac.Sum(nil))
 }

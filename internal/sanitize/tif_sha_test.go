@@ -50,33 +50,33 @@ func Test_buildCleanTIFSHAPath(t *testing.T) {
 	}{
 		{
 			dirtyPath: "1111_2222_33333.tif",
-			want:      "1111_2222_0xe9a341ef3f306166.tif",
+			want:      "1111_2222_0x1b29e40d0a9b8e9217298be9b983e5518fa5d8bf30abbb799b9ee1b7e45025f8.tif",
 		},
 		{
 			dirtyPath: "1111_2222_33333.sha",
-			want:      "1111_2222_0xe9a341ef3f306166.sha",
+			want:      "1111_2222_0x1b29e40d0a9b8e9217298be9b983e5518fa5d8bf30abbb799b9ee1b7e45025f8.sha",
 		},
 		{
 			dirtyPath: "1111_2222_33333_1.sha",
-			want:      "1111_2222_0xe9a341ef3f306166_1.sha",
+			want:      "1111_2222_0x1b29e40d0a9b8e9217298be9b983e5518fa5d8bf30abbb799b9ee1b7e45025f8_1.sha",
 		},
 		{
 			dirtyPath:    "a/1111_2222_33333.tif",
 			dirtyBaseDir: "a/",
 			cleanBaseDir: "b/",
-			want:         "b/1111_2222_0xe9a341ef3f306166.tif",
+			want:         "b/1111_2222_0x1b29e40d0a9b8e9217298be9b983e5518fa5d8bf30abbb799b9ee1b7e45025f8.tif",
 		},
 		{
 			dirtyPath:    "a/b/c/1111_2222_33333.tif",
 			dirtyBaseDir: "a/",
 			cleanBaseDir: "d/",
-			want:         "d/b/c/1111_2222_0xe9a341ef3f306166.tif",
+			want:         "d/b/c/1111_2222_0x1b29e40d0a9b8e9217298be9b983e5518fa5d8bf30abbb799b9ee1b7e45025f8.tif",
 		},
 		{
 			dirtyPath:    "a/b/c d/1111_2222_33333.tif",
 			dirtyBaseDir: "a/",
 			cleanBaseDir: "d/",
-			want:         "d/b/c d/1111_2222_0xe9a341ef3f306166.tif",
+			want:         "d/b/c d/1111_2222_0x1b29e40d0a9b8e9217298be9b983e5518fa5d8bf30abbb799b9ee1b7e45025f8.tif",
 		},
 	}
 	Initialize(testingKey)
