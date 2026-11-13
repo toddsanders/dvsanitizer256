@@ -1,7 +1,7 @@
 # dvsanitizer256
 
 This fork replaces upstream's truncated AES-derived record IDs
-with full HMAC-SHA-256 pseudonyms. It is not an upstream release or a complete
+with 128-bit truncated HMAC-SHA-256 pseudonyms. It is not an upstream release or a complete
 implementation of the accompanying secure-publication proposal.
 
 ## Identifier contract
@@ -14,10 +14,10 @@ context for all related releases; never reuse keys for different elections.
 The HMAC input is the ASCII domain `DVSanitizer-HMAC-SHA256-v1` followed by a
 zero byte, an eight-byte unsigned big-endian UTF-8 context byte length, the context
 bytes, then tabulator, batch and original record ID as three four-byte unsigned
-big-endian integers. Output is `0x` plus all 64 lowercase hexadecimal digest
-digits. Parsing numeric IDs first makes leading zeros consistent across formats.
+big-endian integers. Output is `0x` plus the first 32 lowercase hexadecimal digest
+digits (the first 16 bytes, or 128 bits). Parsing numeric IDs first makes leading zeros consistent across formats.
 Image side/page suffixes remain intact. This format breaks compatibility with
-previous AES outputs: regenerate all related publication copies together.
+previous AES and full-length HMAC outputs: regenerate all related publication copies together.
 
 ## Build and run
 
@@ -52,6 +52,23 @@ and the unfinished-output staging behavior remain in place. Never run third-part
 sanitization software on election management systems. Preserve original records
 and chain of custody; use copies on a separate secured system.
 
+## Collision checks
+
+A run-wide in-memory registry maps each shortened ID to its original numeric
+ballot identity. A distinct identity producing the same ID stops processing with
+an error before output leaves the unfinished staging directory. Repeated
+references to the same ballot, including image sides and SHA companions, are
+allowed. The registry spans all JSON ZIP members or images processed in that run
+and resets on initialization. Memory usage grows with the number of unique
+ballots. The underlying key remains 256 bits; only the public digest is shortened.
+
+These checks do not persist across independent runs or earlier releases. Process
+the full intended dataset for each format in a single run and validate the
+combined release, including incremental exports. On collision, stop release and
+regenerate all related datasets with a fresh key. Do not mix shortened IDs with
+older full-length IDs. The tabulator/batch filename prefix, extension and page or
+side suffix remain unchanged; only the ballot record ID component is replaced.
+
 ## Publication limitations
 
 This change covers keyed identifiers and key handling only. Upstream CSV/JSON
@@ -60,7 +77,7 @@ is not independent random shuffling. Upstream preserves tabulator/batch fields,
 directory structure, embedded image data, and most other metadata. Split JSON
 files retain their original group membership. This version does not implement
 comprehensive timestamp/metadata scrubbing, global reshuffling, image barcode
-redaction, full dataset collision/matching/tally validation, or independent voter
+redaction, cross-run collision validation, full matching/tally validation, or independent voter
 linkage testing. Do not treat its output as approved for public release.
 
 Before publication, implement those remaining controls, validate every CVR/image

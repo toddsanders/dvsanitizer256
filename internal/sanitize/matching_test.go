@@ -15,6 +15,9 @@ func TestMatchingAcrossFormats(t *testing.T) {
 		t.Fatal(err)
 	}
 	id := rows[0][3]
+	if len(id) != 34 {
+		t.Fatal("expected 0x plus 32 hex digits")
+	}
 	if rows[0][4] != "Alice" {
 		t.Fatal("vote content changed")
 	}
