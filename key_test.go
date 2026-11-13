@@ -30,3 +30,23 @@ func TestKeyLifecycle(t *testing.T) {
 		t.Fatal("accepted public key file")
 	}
 }
+
+func TestRejectMalformedKeysAndSymlinks(t *testing.T) {
+	for _, encoded := range []string{"", "00", "zzzz", "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"} {
+		if _, err := loadKey(Args{seed: encoded}); err == nil {
+			t.Fatal("accepted malformed key")
+		}
+	}
+	dir := t.TempDir()
+	target := filepath.Join(dir, "key")
+	if _, err := loadKey(Args{genSeed: true, keyFile: target}); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(dir, "link")
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := loadKey(Args{keyFile: link}); err == nil {
+		t.Fatal("accepted symlink")
+	}
+}

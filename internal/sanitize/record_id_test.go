@@ -67,3 +67,25 @@ func TestElectionAndKeySeparation(t *testing.T) {
 		t.Fatal("ambiguous canonical identifier")
 	}
 }
+
+func TestContextKnownAnswers(t *testing.T) {
+	// Independently generated using Python hmac, hashlib and struct; context length is bytes.
+	InitializeForElection(testingKey, "GA|county|2026-11-03")
+	if got := createCleanRecordID(1, 2, 3); got != "0x04fbbb620aa81f736548980c49c743394a639e4e46b16102ee14771ac2fb9770" {
+		t.Fatalf("context vector mismatch: %s", got)
+	}
+	InitializeForElection(testingKey, "GA|Comté|2026")
+	if got := createCleanRecordID(1, 2, 3); got != "0x979e13c77f03575c8347b1d0c42f63f80b4f841065c0f5cda005a70365867adc" {
+		t.Fatalf("context vector mismatch: %s", got)
+	}
+}
+
+func TestIdentifierFieldsSeparated(t *testing.T) {
+	InitializeForElection(testingKey, "GA|county|2026")
+	original := createCleanRecordID(1, 2, 3)
+	for _, ids := range [][3]uint32{{2, 2, 3}, {1, 3, 3}, {1, 2, 4}} {
+		if createCleanRecordID(ids[0], ids[1], ids[2]) == original {
+			t.Fatal("identifier field ignored")
+		}
+	}
+}
